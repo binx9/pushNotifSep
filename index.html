@@ -1,0 +1,361 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>com.PhoneGap.c2dm</title>
+    </head>
+    <body>
+  <!--/*
+NOTE:
+    This demo uses these plugins:
+        Cordova Device Plugin: http://plugins.cordova.io/#/package/org.apache.cordova.device
+        Cordova Media Plugin: http://plugins.cordova.io/#/package/org.apache.cordova.media
+
+    To add them via the CLI:
+        $ cordova plugin add org.apache.cordova.device
+        $ cordova plugin add org.apache.cordova.media
+*/
+		<script type="text/javascript" charset="utf-8" src="cordova-2.2.0.js"></script>-->
+        <script type="text/javascript" charset="utf-8" src="phonegap.js"></script>
+
+		<link rel="stylesheet" href="jquery.mobile-1.4.5.min.css" />
+		
+		<style type="text/css">
+			body {
+				background: url(lovefm.jpg);
+				background-repeat:repeat-y;
+				background-position:center center;
+				background-attachment:scroll;
+				background-size:100% 100%;
+			}
+			.ui-page {
+				background: transparent;
+			}
+			.ui-content{
+				background: transparent;
+			}
+		</style>
+
+		<script src="jquery-1.11.1.min.js"></script>
+		<script src="jquery.mobile-1.4.5.min.js"></script>
+		
+		<script src="json2.js"></script>
+		<script src="jstorage.js"></script>
+		
+		<script type="text/javascript" src="PushNotification.js"></script>
+        
+        <script type="text/javascript">
+            var pushNotification;
+            /*$(document).on("pageinit", function() {
+				$("#set").html("");
+				$.getJSON( "http://winstonhope.com/push/rest.php", function( data ) {
+					$.each( data, function( key, val ) {
+						var newsItem = "<div data-role='collapsible' data-content-theme='b'  data-collapsed='true'><h3>"+val.title+" - "+val.date_added+"</h3><p>"+val.content+"</p></div>";
+						$("#set").append(newsItem).collapsibleset('refresh');
+					});
+				});
+			});*/
+            function onDeviceReady() {
+                //$("#app-status-ul").append('<li>Device ok. Evento ativado.</li>');
+				document.addEventListener("backbutton", function(e)
+				{
+                	$("#app-status-ul").append('<li>backbutton clicado.</li>');
+  					
+      				if( $("#home").length > 0)
+					{
+						// call this to get a new token each time. don't call it to reuse existing token.
+						//pushNotification.unregister(successHandler, errorHandler);
+						e.preventDefault();
+						navigator.app.exitApp();
+					}
+					else
+					{
+						navigator.app.backHistory();
+					}
+				}, false);
+			
+				try 
+				{
+                	pushNotification = window.plugins.pushNotification;
+		      $("#app-status-ul").append('<li>Registering ' + device.platform + '</li>');
+                	if (device.platform == 'android' || device.platform == 'Android' ||
+                            device.platform == 'amazon-fireos' ) {
+			pushNotification.register(successHandler, errorHandler, {"senderID":"665078456303","ecb":"onNotification"});		// required!
+					} else {
+                    	pushNotification.register(tokenHandler, errorHandler, {"badge":"true","sound":"true","alert":"true","ecb":"onNotificationAPN"});	// required!
+                	}
+                }
+				catch(err) 
+				{ 
+					txt="An error occurred.\n\n"; 
+					txt+="Description of error: " + err.message + "\n\n"; 
+					alert(txt); 
+				} 
+            }
+            
+            // handle APNS notifications for iOS
+            function onNotificationAPN(e) {
+                if (e.alert) {
+                     $("#app-status-ul").append('<li>push-notification: ' + e.alert + '</li>');
+                     // showing an alert also requires the org.apache.cordova.dialogs plugin
+                     navigator.notification.alert(e.alert);
+                }
+                    
+                if (e.sound) {
+                    // playing a sound also requires the org.apache.cordova.media plugin
+                    var snd = new Media(e.sound);
+                    snd.play();
+                }
+                
+                if (e.badge) {
+                    pushNotification.setApplicationIconBadgeNumber(successHandler, e.badge);
+                }
+            }
+            
+            // handle GCM notifications for Android
+            function onNotification(e) {
+                $("#app-status-ul").append('<li>EVENT -> RECEIVED:' + e.event + '</li>');
+                
+                switch( e.event )
+                {
+                    case 'registered':
+					if ( e.regid.length > 0 )
+					{
+						$("#app-status-ul").append('<li>REGISTERED -> REGID: \n\n' + e.regid + "\n\n</li>");
+						// Your GCM push server needs to know the regID before it can push to this device
+						// here is where you might want to send it the regID for later use.
+						$.post( "http://winstonhope.com/push/gather.php", { regid: e.regid })
+							.done(function( data ) {
+								//console.log(data);
+								//$("#app-status-ul").append("<li>success: says Winston!</li>");
+							})
+						console.log("regID = " + e.regid);
+					}
+                    break;
+                    
+                    case 'message':
+                    	// if this flag is set, this notification happened while we were in the foreground.
+                    	// you might want to play a sound to get the user's attention, throw up a dialog, etc.
+                    	if (e.foreground)
+                    	{
+							$("#app-status-ul").append('<li>--NOTIFICATIONS IN LINE--' + '</li>');
+						      
+							// on Android soundname is outside the payload. 
+							// On Amazon FireOS all custom attributes are contained within payload
+							var soundfile = e.soundname || e.payload.sound;
+							// if the notification contains a soundname, play it.
+							// playing a sound also requires the org.apache.cordova.media plugin
+							var my_media = new Media("/android_asset/www/"+ soundfile);
+
+							my_media.play();
+						}
+						else
+						{	// otherwise we were launched because the user touched a notification in the notification tray.
+							if (e.coldstart)
+								$("#app-status-ul").append('<li>--NOTIFICATIONS RECEIVED--' + '</li>');
+							else
+							$("#app-status-ul").append('<li>--BACKGROUND NOTIFICATION--' + '</li>');
+						}
+							
+							$("#app-status-ul").append('<li>MESSAGE -> MSG: ' + e.payload.message + '</li>');
+							//android only
+							$("#app-status-ul").append('<li>MESSAGE -> MSGCNT: ' + e.payload.msgcnt + '</li>');
+							//amazon-fireos only
+							$("#app-status-ul").append('<li>MESSAGE -> TIMESTAMP: ' + e.payload.timeStamp + '</li>');
+							$("#set").empty();
+							//$("#set").collapsibleset('refresh');
+							$.getJSON( "http://winstonhope.com/push/rest.php", function( data ) {
+								$.jStorage.flush();
+								var newsItem = "<div data-role='collapsible' data-content-theme='b' data-collapsed='true'><h3>"+data.title+" - "+data.date_added+"</h3><p>"+data.content+"</p></div>";
+								$("#set").append(newsItem).collapsibleset('refresh');
+							});
+                    break;
+                    
+                    case 'error':
+						$("#app-status-ul").append('<li>ERROR -> MSG:' + e.msg + '</li>');
+                    break;
+                    
+                    default:
+						$("#app-status-ul").append('<li>EVENT -> Unknown, an event was received and we do not know what it is</li>');
+                    break;
+                }
+            }
+            
+            function tokenHandler (result) {
+                $("#app-status-ul").append('<li>token: '+ result +'</li>');
+                // Your iOS push server needs to know the token before it can push to this device
+                // here is where you might want to send it the token for later use.
+            }
+			
+            function successHandler (result) {
+                $("#app-status-ul").append('<li>sucesso:'+ result +'</li>');
+            }
+            
+            function errorHandler (error) {
+                $("#app-status-ul").append('<li>erro:'+ error +'</li>');
+            }
+            
+			document.addEventListener('deviceready', onDeviceReady, true);
+
+         </script>
+		
+		<!-- Start of first page -->
+		<div data-role="page" id="foo">
+
+			<div data-role="header">
+				<h1>LoveFM Radio</h1>
+				<a href="#" data-icon="gear" class="ui-btn-right">Options</a>
+			</div><!-- /header -->
+
+			<div role="main" class="ui-content">
+				<audio  id="myVideo" controls="controls">
+				  <source src="http://server.winstonhope.com:8000/stream" type="audio/mpeg">
+					Your browser does not support the audio element.
+				</audio>
+				<!--<div id="app-status-div">
+					<ul id="app-status-ul">
+						<li>Cordova PushNotification Plugin Demo</li>
+					</ul>
+				</div> -->
+			</div><!-- /content -->
+			<div data-role="footer" data-id="foo1" data-position="fixed">
+				<div data-role="navbar">
+					<ul>
+						<li><a href="#foo" class="ui-btn-active ui-state-persist">Home</a></li>
+						<li><a href="#bar">News Flash</a></li>
+					</ul>
+				</div><!-- /navbar -->
+			</div><!-- /footer -->
+		</div><!-- /page -->
+
+		<!-- Start of second page -->
+		<div data-role="page" id="bar">
+			<div data-role="header">
+				<h1>LoveFm News</h1>
+			</div><!-- /header -->
+			<div role="main" class="ui-content">
+				<div data-role="collapsible-set" data-content-theme="d" id="set">
+				</div>
+			</div><!-- /content -->
+			<div data-role="footer" data-position="fixed">
+				<div data-role="navbar">
+					<ul>
+						<li><a href="#foo">Home</a></li>
+						<li><a href="#bar" class="ui-btn-active ui-state-persist">News Flash</a></li>
+					</ul>
+				</div><!-- /navbar -->
+			</div><!-- /footer -->
+		</div><!-- /page -->
+
+			
+		
+	<script>
+	/*$(function() {
+			$( "[data-role='navbar']" ).navbar();
+			$( "[data-role='header'], [data-role='footer']" ).toolbar();
+	});*/
+	// Update the contents of the toolbars
+	/*$( document ).on( "pagecontainerchange", function() {
+		// Each of the four pages in this demo has a data-title attribute
+		// which value is equal to the text of the nav button
+		// For example, on first page: <div data-role="page" data-title="Info">
+		var current = $( ".ui-page-active" ).jqmData( "title" );
+		// Change the heading
+		$( "[data-role='header'] h1" ).text( current );
+		// Remove active class from nav buttons
+		$( "[data-role='navbar'] a.ui-btn-active" ).removeClass( "ui-btn-active" );
+		// Add active class to current nav button
+		$( "[data-role='navbar'] a" ).each(function() {
+			if ( $( this ).text() === current ) {
+				$( this ).addClass( "ui-btn-active" );
+			}
+		});
+	});*/
+/*
+      window.fbAsyncInit = function() {
+        FB.init({
+          appId      : '1521775134725984',
+          xfbml      : true,
+		  status	 : true,
+		  cookie     : true,
+		  version    : 'v2.1'
+        });
+		
+		
+			FB.getLoginStatus(function(response) {
+				console.log("login status: ");
+				console.log(response);
+				  if (response.status === 'connected') {
+					//setInterval(function() {
+						FB.api(
+							"/114262182112994/feed", //762790813778719
+							function (response) {
+							  if (response && !response.error) {
+								var posts = response.data;
+								console.log("Posts: ");
+								console.log(posts);
+								
+								function logArrayElements(element, index, array) {
+									//console.log('a[' + index + '] = ' + element);
+									var msg  = element.message;
+									var author = element.from.name;
+									var crt_time = element.updated_time;
+									/*console.log("start");
+									console.log(element.likes);
+									console.log("end");*/
+									
+								/*	var likes = 0;
+									var comments = 0;
+									if ( 'likes' in element ) {
+									//if (typeof element.likes.data != 'undefined') {
+										likes = Object.keys(element.likes.data).length;
+									}
+
+									if ( 'comments' in element ) {
+									//if (typeof element.likes.data != 'undefined') {
+										comments = Object.keys(element.comments.data).length;
+									}
+
+									//var data = "<div data-role='popup' id='purchase2'  class='ui-content' style='max-width:340px; padding-bottom:2em;'><h3>" + author +"</h3><div class='fb-like' data-href='https://www.facebook.com/photo.php?fbid=10152603822243666&set=oa.779059885485145&type=1&theater' data-layout='button_count' data-action='like' data-show-faces='true'></div><p>" + msg + "</p><a href='index.html' data-role='button' data-rel='back' data-theme='b' data-icon='check' data-inline='true' data-mini='true'>Boost!</a><a href='index.html' data-role='button' data-rel='back' data-inline='true' data-mini='true'>Publish!</a><a href='index.html' data-role='button' data-rel='back' data-theme='b' data-icon='check' data-inline='true' data-mini='true'>Watch!</a><a href='index.html' data-role='button' data-rel='back' data-theme='b' data-icon='check' data-inline='true' data-mini='true'>Call Owner</a><a href='index.html' data-role='button' data-rel='back' data-theme='b' data-icon='check' data-inline='true' data-mini='true'>Close</a></div>";
+									var data = "<li data-role='list-divider'>" + author + " " + crt_time + "<span class='ui-li-count'>" + likes + " Likes - " + comments + " comments</span></li>";
+									data += "<li><a href='index.html'>"
+												//+ "<img src='#'>"
+												//+ "<h2>2001 VW Jetta</h2>"
+												+ "<p style='word-wrap: break-word;'><strong style='word-wrap: break-word;'>" + msg + "</strong></p>"
+												//+ "<p>Location: Orange Walk.</p>"
+												//+ "<p class='ui-li-aside'><strong>BZE: 7000</strong>K</p>"
+												+ "<a href='#purchase' data-rel='popup' data-position-to='window' data-transition='pop'>Extra</a></a>"
+												+ "</li>";
+									$("#listview").append(data);
+								}
+
+								// Note ellision, there is no member at 2 so it isn't visited
+								posts.forEach(logArrayElements);
+								$('#listview').listview('refresh');
+							  }
+							}
+						);
+						
+					//}, 2000);
+				}
+				  else {
+					FB.login(function(){
+					}, {scope: 'publish_actions'});
+				  }
+			});
+      };
+	  
+	
+
+	(function(d, s, id){
+		var js, fjs = d.getElementsByTagName(s)[0];
+		if (d.getElementById(id)) {return;}
+		js = d.createElement(s); js.id = id;
+		js.src = "//connect.facebook.net/en_US/sdk.js";
+		fjs.parentNode.insertBefore(js, fjs);
+	}(document, 'script', 'facebook-jssdk'));*/
+	var vid = document.getElementById("myVideo");
+vid.autoplay = true;
+vid.load();
+</script>
+    </body>
+</html>
